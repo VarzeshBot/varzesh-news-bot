@@ -57,15 +57,16 @@ def send_news():
     if news:
         title_fa, link = news
 
-        # بررسی تکراری بودن
+        # بررسی تکراری نبودن
         last = read_last_news()
         if title_fa == last["last_title"] or link == last["last_link"]:
-            print("خبر جدیدی نیست.")
+            print("خبر تکراریه، ارسال نمی‌شود.")
             return
 
-        # ادامه ارسال اگر خبر جدید بود
+        # ادامه فقط اگر خبر جدید بود
         title_en = translate_title(title_fa)
         image_url = search_image(title_en)
+
         message = f"📣 اخبار ورزشی\n\n🏆 {title_fa}\n\n🔗 {link}\n\n@akhbar_varzeshi_roz_iran"
 
         if image_url:
@@ -73,7 +74,7 @@ def send_news():
         else:
             bot.send_message(chat_id=CHANNEL_USERNAME, text=message)
 
-        # ذخیره این خبر به‌عنوان آخرین خبر
+        # ذخیره آخرین خبر
         write_last_news(title_fa, link)
 
 send_news()
