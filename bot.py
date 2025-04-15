@@ -1,4 +1,5 @@
 import requests
+import json
 from bs4 import BeautifulSoup
 from deep_translator import GoogleTranslator
 from telegram import Bot
