@@ -13,7 +13,7 @@ SEARCH_ENGINE_ID = "9171969b9d6eb4efa"
 
 # دریافت آخرین خبر از RSS
 def get_latest_news():
-    rss_url = "https://www.varzesh3.com/rss/all"
+    rss_url = "https://www.varzesh3.com/news/rss/all"
     response = requests.get(rss_url)
     soup = BeautifulSoup(response.content, features="xml")
     items = soup.findAll("item")
