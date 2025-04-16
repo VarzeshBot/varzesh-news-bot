@@ -4,3 +4,4 @@ beautifulsoup4
 lxml
 deep_translator
 google-api-python-client
+sqlite3
