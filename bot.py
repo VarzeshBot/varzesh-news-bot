@@ -1,68 +1,72 @@
+import feedparser
 import requests
 from bs4 import BeautifulSoup
-from deep_translator import GoogleTranslator
 from telegram import Bot
+import json
+import sqlite3
 import os
-from db import init_db, is_duplicate, save_news
+from deep_translator import GoogleTranslator
 
-# تنظیمات شما
-TOKEN = os.environ.get("TOKEN")
-CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-SEARCH_ENGINE_ID = os.environ.get("SEARCH_ENGINE_ID")
+# اطلاعات ربات
+TOKEN = "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
+CHANNEL_ID = "@akhbar_varzeshi_roz_iran"
 
-# گرفتن خبر جدید از RSS
-def get_latest_news():
-    rss_url = "https://www.varzesh3.com/rss/all"
-    response = requests.get(rss_url)
-    soup = BeautifulSoup(response.content, features="xml")
-    items = soup.findAll("item")
-    if not items:
+# لینک RSS
+RSS_FEED = "https://www.varzesh3.com/rss/all"
+
+# تابع ترجمه تیتر
+def translate_to_english(text):
+    try:
+        return GoogleTranslator(source='auto', target='en').translate(text)
+    except:
+        return ""
+
+# تابع دریافت عکس از unsplash
+def get_unsplash_image(query):
+    try:
+        response = requests.get(f"https://source.unsplash.com/featured/?{query}")
+        return response.url
+    except:
         return None
-    article = items[0]
-    title = article.title.text
-    link = article.link.text
-    return title, link
 
-# ترجمه تیتر
-def translate_title(title_fa):
-    return GoogleTranslator(source='auto', target='en').translate(title_fa)
+# اتصال به دیتابیس SQLite
+conn = sqlite3.connect("news.db")
+cursor = conn.cursor()
+cursor.execute('''CREATE TABLE IF NOT EXISTS news (link TEXT PRIMARY KEY)''')
+conn.commit()
 
-# جستجوی عکس در گوگل
-def search_image(query):
-    search_url = f"https://www.googleapis.com/customsearch/v1?q={query}&cx={SEARCH_ENGINE_ID}&key={GOOGLE_API_KEY}&searchType=image"
-    response = requests.get(search_url).json()
-    if "items" in response:
-        images = response["items"]
-        return images[0]["link"]
-    return None
-
-# ارسال پیام به تلگرام
+# ارسال خبر به تلگرام
 def send_news():
-    init_db()
+    feed = feedparser.parse(RSS_FEED)
 
-    bot = Bot(token=TOKEN)
-    news = get_latest_news()
-    if not news:
-        return
+    for entry in feed.entries:
+        title = entry.title
+        link = entry.link
 
-    title_fa, link = news
+        # بررسی تکراری نبودن لینک
+        cursor.execute("SELECT link FROM news WHERE link=?", (link,))
+        if cursor.fetchone():
+            continue
 
-    if is_duplicate(title_fa, link):
-        print("خبر تکراری است، ارسال نمی‌شود.")
-        return
+        # دریافت تصویر مرتبط
+        translated_title = translate_to_english(title)
+        image_url = get_unsplash_image(translated_title)
 
-    title_en = translate_title(title_fa)
-    image_url = search_image(title_en)
+        # ساخت پیام
+        caption = f"<b>📣 {title}</b>\n<a href='{link}'>مطالعه خبر</a>"
+        bot = Bot(token=TOKEN)
 
-    message = f"<b>اخبار ورزشی</b> 📣\n\n<b>{title_fa}</b>\n\n<a href='{link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
+        # ارسال با عکس
+        if image_url:
+            bot.send_photo(chat_id=CHANNEL_ID, photo=image_url, caption=caption, parse_mode="HTML")
+        else:
+            bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode="HTML")
 
-    if image_url:
-        bot.send_photo(chat_id=CHANNEL_USERNAME, photo=image_url, caption=message, parse_mode='HTML')
-    else:
-        bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode='HTML')
+        # ذخیره لینک در دیتابیس
+        cursor.execute("INSERT INTO news (link) VALUES (?)", (link,))
+        conn.commit()
 
-    save_news(title_fa, link)
+        # فقط یک خبر ارسال شود
+        break
 
-# اجرای اصلی
 send_news()
