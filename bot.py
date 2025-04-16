@@ -5,12 +5,13 @@ from telegram import Bot
 import json
 import os
 
-# تنظیمات شما
+# دریافت تنظیمات از محیط اجرا (Environment Variables)
 TOKEN = os.environ.get("TOKEN")
 CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 SEARCH_ENGINE_ID = os.environ.get("SEARCH_ENGINE_ID")
-# دریافت آخرین خبر RSS
+
+# دریافت آخرین خبر از RSS ورزش ۳
 def get_latest_news():
     rss_url = "https://www.varzesh3.com/rss/all"
     response = requests.get(rss_url)
@@ -23,7 +24,7 @@ def get_latest_news():
     link = article.link.text
     return title, link
 
-# ترجمه تیتر
+# ترجمه تیتر برای جستجوی عکس
 def translate_title(title_fa):
     return GoogleTranslator(source='auto', target='en').translate(title_fa)
 
@@ -36,18 +37,18 @@ def search_image(query):
         return images[0]["link"]
     return None
 
-# ذخیره آخرین خبر
-def write_last_news(title, link):
-    with open("last_news.json", "w") as file:
-        json.dump({"last_title": title, "last_link": link}, file)
-
-# خواندن آخرین خبر
+# خواندن آخرین خبر ذخیره‌شده
 def read_last_news():
     try:
         with open("last_news.json", "r") as file:
             return json.load(file)
     except:
         return {"last_title": "", "last_link": ""}
+
+# ذخیره‌ آخرین خبر جدید
+def write_last_news(title, link):
+    with open("last_news.json", "w") as file:
+        json.dump({"last_title": title, "last_link": link}, file)
 
 # ارسال خبر به تلگرام
 def send_news():
@@ -56,30 +57,24 @@ def send_news():
     if news:
         title_fa, link = news
 
-        # بررسی تکراری نبودن
+        # جلوگیری از ارسال خبر تکراری
         last = read_last_news()
         if title_fa == last["last_title"] or link == last["last_link"]:
             print("خبر تکراری است، ارسال نمی‌شود.")
             return
 
-        # ادامه فقط اگر خبر جدید بود
         title_en = translate_title(title_fa)
         image_url = search_image(title_en)
 
-        # پیام HTML حرفه‌ای
-        message = f"<b>📣 اخبار ورزشی</b>\n\n<b>{title_fa}</b>\n\n<a href='{link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
+        # پیام HTML
+        message = f"<b>اخبار ورزشی</b> 🏆\n\n<b>{title_fa}</b>\n\n<a href='{link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
 
         if image_url:
-            bot.send_photo(chat_id=CHANNEL_USERNAME, photo=image_url, caption=message, parse_mode='HTML')
+            bot.send_photo(chat_id=CHANNEL_USERNAME, photo=image_url, caption=message, parse_mode="HTML")
         else:
-            bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode='HTML')
+            bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="HTML")
 
         write_last_news(title_fa, link)
 
 # اجرای اصلی
 send_news()
-# ارسال پیام تستی به تلگرام
-from telegram import Bot
-
-bot = Bot(token=TOKEN)
-bot.send_message(chat_id=CHANNEL_USERNAME, text="✅ پیام تستی: ربات با موفقیت اجرا شد.")
