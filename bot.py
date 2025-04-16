@@ -78,3 +78,8 @@ def send_news():
 
 # اجرای اصلی
 send_news()
+# ارسال پیام تستی به تلگرام
+from telegram import Bot
+
+bot = Bot(token=TOKEN)
+bot.send_message(chat_id=CHANNEL_USERNAME, text="✅ پیام تستی: ربات با موفقیت اجرا شد.")
