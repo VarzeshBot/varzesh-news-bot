@@ -6,14 +6,10 @@ import json
 import os
 
 # تنظیمات شما
-TOKEN = os.environ.get
- "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
-CHANNEL_USERNAME = os.environ.get
- "@akhbar_varzeshi_roz_iran"
-GOOGLE_API_KEY = os.environ.get
- "AIzaSyDyPE9Mk0JhL-wvzFEg1OGBqy6o8LjAaGc"
-SEARCH_ENGINE_ID = os.environ.get
- "9171969b9d6eb4efa"
+TOKEN = os.environ.get("8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ")
+CHANNEL_USERNAME = os.environ.get("@akhbar_varzeshi_roz_iran")
+GOOGLE_API_KEY = os.environ.get("AIzaSyDyPE9Mk0JhL-wvzFEg1OGBqy6o8LjAaGc")
+SEARCH_ENGINE_ID = os.environ.get("9171969b9d6eb4efa")
 # دریافت آخرین خبر RSS
 def get_latest_news():
     rss_url = "https://www.varzesh3.com/rss/all"
