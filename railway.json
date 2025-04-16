@@ -1,10 +1,8 @@
 {
   "build": {
     "env": {
-      "PYTHONUNBUFFERED": "1"
+      "PYTHON_VERSION": "3.11"
     }
   },
-  "deploy": {
-    "startCommand": "python bot.py"
-  }
+  "start": "python bot.py"
 }
