@@ -1,72 +1,73 @@
-import feedparser
+import os
+import re
+import time
+import sqlite3
+from html import escape
+
 import requests
 from bs4 import BeautifulSoup
-from telegram import Bot
-import json
-import sqlite3
-import os
-from deep_translator import GoogleTranslator
+from telegram import Bot, ParseMode
 
 # اطلاعات ربات
 TOKEN = "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
-CHANNEL_ID = "@akhbar_varzeshi_roz_iran"
+CHANNEL_ID = "@akhbar_varzeshi_roz_iran"  # آیدی کانال تلگرام شما
 
-# لینک RSS
-RSS_FEED = "https://www.varzesh3.com/rss/all"
+# ساخت بات تلگرام
+bot = Bot(token=TOKEN)
 
-# تابع ترجمه تیتر
-def translate_to_english(text):
-    try:
-        return GoogleTranslator(source='auto', target='en').translate(text)
-    except:
-        return ""
-
-# تابع دریافت عکس از unsplash
-def get_unsplash_image(query):
-    try:
-        response = requests.get(f"https://source.unsplash.com/featured/?{query}")
-        return response.url
-    except:
-        return None
-
-# اتصال به دیتابیس SQLite
-conn = sqlite3.connect("news.db")
+# تنظیم اتصال به دیتابیس
+conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
-cursor.execute('''CREATE TABLE IF NOT EXISTS news (link TEXT PRIMARY KEY)''')
+cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# ارسال خبر به تلگرام
+# آدرس صفحه اخبار ورزش ۳
+BASE_URL = "https://www.varzesh3.com"
+
+def already_sent(news_id):
+    cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
+    return cursor.fetchone() is not None
+
+def mark_as_sent(news_id):
+    cursor.execute("INSERT OR IGNORE INTO sent_news (id) VALUES (?)", (news_id,))
+    conn.commit()
+
 def send_news():
-    feed = feedparser.parse(RSS_FEED)
+    try:
+        response = requests.get(f"{BASE_URL}/news", timeout=10)
+        soup = BeautifulSoup(response.text, "lxml")
 
-    for entry in feed.entries:
-        title = entry.title
-        link = entry.link
+        news_links = soup.find_all("a", href=re.compile(r"^/news/\d+"))
+        seen = set()
 
-        # بررسی تکراری نبودن لینک
-        cursor.execute("SELECT link FROM news WHERE link=?", (link,))
-        if cursor.fetchone():
-            continue
+        for a in news_links:
+            href = a.get("href")
+            title = a.get_text(strip=True)
 
-        # دریافت تصویر مرتبط
-        translated_title = translate_to_english(title)
-        image_url = get_unsplash_image(translated_title)
+            if not href or not title or href in seen:
+                continue
+            seen.add(href)
 
-        # ساخت پیام
-        caption = f"<b>📣 {title}</b>\n<a href='{link}'>مطالعه خبر</a>"
-        bot = Bot(token=TOKEN)
+            match = re.search(r"/news/(\d+)", href)
+            if not match:
+                continue
 
-        # ارسال با عکس
-        if image_url:
-            bot.send_photo(chat_id=CHANNEL_ID, photo=image_url, caption=caption, parse_mode="HTML")
-        else:
-            bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode="HTML")
+            news_id = match.group(1)
+            if already_sent(news_id):
+                continue
 
-        # ذخیره لینک در دیتابیس
-        cursor.execute("INSERT INTO news (link) VALUES (?)", (link,))
-        conn.commit()
+            full_link = f"{BASE_URL}{href}"
+            message = f"<b>📣 {escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
 
-        # فقط یک خبر ارسال شود
-        break
+            # ارسال پیام
+            bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            mark_as_sent(news_id)
+            break  # فقط یک خبر در هر بار اجرا
+
+    except Exception as e:
+        print("خطا در دریافت یا ارسال خبر:", e)
+
+# اجرای اصلی
+send_news()
 
 send_news()
