@@ -5,4 +5,3 @@ lxml
 deep_translator
 google-api-python-client
 feedparser
-sqlite3
