@@ -12,16 +12,13 @@ from telegram import Bot, ParseMode
 TOKEN = "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
 CHANNEL_ID = "@akhbar_varzeshi_roz_iran"  # آیدی کانال تلگرام شما
 
-# ساخت بات تلگرام
 bot = Bot(token=TOKEN)
 
-# تنظیم اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس صفحه اخبار ورزش ۳
 BASE_URL = "https://www.varzesh3.com"
 
 def already_sent(news_id):
@@ -35,14 +32,15 @@ def mark_as_sent(news_id):
 def send_news():
     try:
         response = requests.get(f"{BASE_URL}/news", timeout=10)
-        soup = BeautifulSoup(response.text, "lxml")
+        soup = BeautifulSoup(response.text, "html.parser")
 
-        news_links = soup.find_all("a", href=re.compile(r"^/news/\d+"))
+        # بررسی لینک‌های معتبر
+        news_links = soup.select("a[href^='/news/']")
         seen = set()
 
         for a in news_links:
             href = a.get("href")
-            title = a.get_text(strip=True)
+            title = a.get("title") or a.get_text(strip=True)
 
             if not href or not title or href in seen:
                 continue
@@ -59,15 +57,11 @@ def send_news():
             full_link = f"{BASE_URL}{href}"
             message = f"<b>📣 {escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
 
-            # ارسال پیام
             bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
             mark_as_sent(news_id)
-            break  # فقط یک خبر در هر بار اجرا
+            break
 
     except Exception as e:
-        print("خطا در دریافت یا ارسال خبر:", e)
-
-# اجرای اصلی
-send_news()
+        print("خطا:", e)
 
 send_news()
