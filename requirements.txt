@@ -5,3 +5,4 @@ lxml
 deep_translator
 google-api-python-client
 feedparser
+urllib3==1.26.6
