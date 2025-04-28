@@ -21,8 +21,8 @@ cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس صفحه اخبار ورزش۳
-BASE_URL = "https://www.varzesh3.com/news"
+# آدرس صفحه اخبار ورزش ۳
+BASE_URL = "https://www.varzesh3.com"
 
 def already_sent(news_id):
     cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
@@ -34,16 +34,10 @@ def mark_as_sent(news_id):
 
 def send_news():
     try:
-        print("دریافت صفحه ورزش۳...")
-        response = requests.get(BASE_URL, timeout=10)
-        response.raise_for_status()
-        
+        response = requests.get(f"{BASE_URL}/news", timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # پیدا کردن همه لینک‌هایی که به خبر می‌روند
-        news_links = soup.find_all("a", href=re.compile(r"^/news/\d+"))
-        print(f"تعداد خبرهای پیدا شده: {len(news_links)}")
-
+        news_links = soup.select('a[href^="/news/"]')
         seen = set()
 
         for a in news_links:
@@ -52,29 +46,33 @@ def send_news():
 
             if not href or not title:
                 continue
+            if not href.startswith("/news/"):
+                continue
             if href in seen:
                 continue
             seen.add(href)
 
+            # استخراج عدد از لینک
             match = re.search(r"/news/(\d+)", href)
             if not match:
                 continue
-
             news_id = match.group(1)
+
             if already_sent(news_id):
                 continue
 
-            full_link = f"https://www.varzesh3.com{href}"
-            message = f"<b>📣 {escape(title)}</b>\n<a href='{full_link}'>مشاهده خبر</a>"
+            full_link = f"{BASE_URL}{href}"
+            message = f"<b>📣 {escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
 
+            # ارسال به کانال
             bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
             mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
-            break  # فقط یک خبر در هر اجرا
+            break  # فقط یک خبر جدید ارسال شود
 
     except Exception as e:
-        print(f"خطا در دریافت یا ارسال خبر: {e}")
+        print("خطا در دریافت یا ارسال خبر:", e)
 
 # اجرای اصلی
-if __name__ == "__main__":
+if _name_ == "_main_":
     send_news()
