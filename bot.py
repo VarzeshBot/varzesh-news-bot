@@ -74,5 +74,5 @@ def send_news():
         print("خطا در دریافت یا ارسال خبر:", e)
 
 # اجرای اصلی
-if _name_ == "_main_":
+if __name__ == "__main__":
     send_news()
