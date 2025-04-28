@@ -63,7 +63,7 @@ def send_news():
 
     except Exception as e:
         print("خطا:", e)
-if _name_ == "_main_":
+if __name__ == "__main__":
     response = requests.get(f"{BASE_URL}/news", timeout=10)
     soup = BeautifulSoup(response.text, "lxml")
 
