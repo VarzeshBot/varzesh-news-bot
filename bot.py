@@ -9,8 +9,8 @@ from bs4 import BeautifulSoup
 from telegram import Bot, ParseMode
 
 # اطلاعات ربات
-TOKEN = "توکن رباتت اینجا"
-CHANNEL_ID = "@آیدی_کانالت_اینجا"
+TOKEN = "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
+CHANNEL_ID ="@akhbar_varzeshi_roz_iran"
 
 # ساخت بات تلگرام
 bot = Bot(token=TOKEN)
