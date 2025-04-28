@@ -14,13 +14,13 @@ CHANNEL_ID ="@akhbar_varzeshi_roz_iran"
 # ساخت بات تلگرام
 bot = Bot(token=TOKEN)
 
-# تنظیم اتصال به دیتابیس
+# اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس صفحه اخبار ورزش ۳
+# آدرس سایت ورزش ۳
 BASE_URL = "https://www.varzesh3.com/news"
 
 def already_sent(news_id):
@@ -36,25 +36,25 @@ def send_news():
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        news_links = soup.select("a.news-item__link[href^='/news/']")
+        news_links = soup.select("a[href^='/news/']")
         seen = set()
 
         for a in news_links:
             href = a.get("href")
             title = a.get_text(strip=True)
 
-            if not href or not title:
+            if not href or not title or href in seen:
+                continue
+            if not href.startswith("/news/"):
                 continue
 
-            if href in seen:
-                continue
             seen.add(href)
 
-            news_id_match = re.search(r"/news/(\d+)", href)
-            if not news_id_match:
+            match = re.search(r"/news/(\d+)", href)
+            if not match:
                 continue
 
-            news_id = news_id_match.group(1)
+            news_id = match.group(1)
             if already_sent(news_id):
                 continue
 
@@ -63,11 +63,14 @@ def send_news():
 
             bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
             mark_as_sent(news_id)
-            print(f"خبر جدید ارسال شد: {title}")
-            break
+            print(f"خبر ارسال شد: {title}")
+            break  # فقط یک خبر در هر بار اجرا
 
     except Exception as e:
-        print(f"خطا در دریافت یا ارسال خبر: {e}")
+        print("خطا در دریافت یا ارسال خبر:", e)
 
 if __name__ == "__main__":
-    send_news()
+    while True:
+        send_news()
+        print("در حال استراحت برای ۱۰ دقیقه...\n")
+        time.sleep(600)  # خواب ۱۰ دقیقه‌ای
