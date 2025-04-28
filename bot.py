@@ -63,5 +63,10 @@ def send_news():
 
     except Exception as e:
         print("خطا:", e)
+if _name_ == "_main_":
+    response = requests.get(f"{BASE_URL}/news", timeout=10)
+    soup = BeautifulSoup(response.text, "lxml")
 
+    news_links = soup.select("a[href^='/news/']")
+    print(f"تعداد لینک‌های خبری که پیدا شد: {len(news_links)}")
 send_news()
