@@ -19,8 +19,8 @@ cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس سایت اصلی
-BASE_URL = "https://www.varzesh3.com"
+# آدرس صفحه اصلی ورزش۳
+BASE_URL = "https://www.varzesh3.com/"
 
 def already_sent(news_id):
     cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
@@ -62,6 +62,16 @@ def send_news():
 
             full_link = f"https://www.varzesh3.com{href}"
 
+            # تلاش برای پیدا کردن عکس خبر
+            parent = a.find_parent("div", class_="newsbox-2-container")
+            img_tag = parent.find("img") if parent else None
+            img_url = None
+            if img_tag and img_tag.has_attr("src"):
+                img_url = img_tag["src"]
+                if img_url.startswith("//"):
+                    img_url = "https:" + img_url
+
+            # ساخت پیام
             message = (
                 "📣 <b>اخبار ورزشی</b>\n\n"
                 f"<b>{escape(title)}</b>\n\n"
@@ -69,12 +79,22 @@ def send_news():
                 "@akhbar_varzeshi_roz_iran"
             )
 
-            bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=message,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True
-            )
+            if img_url:
+                # اگر عکس داشت، عکس + متن
+                bot.send_photo(
+                    chat_id=CHANNEL_ID,
+                    photo=img_url,
+                    caption=message,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                # اگر عکس نداشت، فقط متن
+                bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=message,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True
+                )
 
             mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
