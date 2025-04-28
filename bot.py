@@ -11,7 +11,7 @@ from telegram import Bot, ParseMode
 TOKEN = "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
 CHANNEL_ID ="@akhbar_varzeshi_roz_iran"
 
-# ساخت ربات تلگرام
+# ساخت بات تلگرام
 bot = Bot(token=TOKEN)
 
 # اتصال به دیتابیس
@@ -20,58 +20,59 @@ cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس صفحه اصلی اخبار ورزش ۳
+# آدرس صفحه اخبار ورزش ۳
 BASE_URL = "https://www.varzesh3.com/news"
 
 def already_sent(news_id):
-    """بررسی اینکه این خبر قبلاً ارسال شده یا نه"""
     cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
     return cursor.fetchone() is not None
 
 def mark_as_sent(news_id):
-    """علامت‌گذاری خبر به عنوان ارسال شده"""
     cursor.execute("INSERT OR IGNORE INTO sent_news (id) VALUES (?)", (news_id,))
     conn.commit()
 
 def send_news():
-    """دریافت و ارسال یک خبر جدید"""
     try:
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # پیدا کردن لینک‌های اخبار
-        news_links = soup.select('a[href^="/news/"]')
+        news_boxes = soup.find_all("div", class_="newsbox-2-container")
         seen = set()
 
-        for a in news_links:
-            href = a.get("href")
-            title = a.get_text(strip=True)
+        for box in news_boxes:
+            a_tag = box.find("a", href=True)
+            if not a_tag:
+                continue
 
-            if not href or not title or href in seen:
+            href = a_tag['href']
+            title = a_tag.get_text(strip=True)
+
+            if not href or not title:
+                continue
+
+            if href in seen or not href.startswith("/news/"):
                 continue
             seen.add(href)
 
-            # گرفتن آی‌دی خبر از لینک
-            match = re.search(r"/news/(\d+)", href)
-            if not match:
+            news_id_match = re.search(r"/news/(\d+)", href)
+            if not news_id_match:
                 continue
 
-            news_id = match.group(1)
+            news_id = news_id_match.group(1)
             if already_sent(news_id):
                 continue
 
-            # ساخت پیام نهایی
             full_link = f"https://www.varzesh3.com{href}"
-            message = f"<b>📣 اخبار ورزشی</b>\n<b>{escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
+            message = f"<b>📣 اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
 
-            # ارسال به تلگرام
             bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
             mark_as_sent(news_id)
-            print(f"خبر جدید ارسال شد: {title}")
-            break  # فقط یک خبر ارسال شود
+            print("خبر ارسال شد:", title)
+            break  # فقط یک خبر در هر بار اجرا
 
     except Exception as e:
-        print(f"خطا در دریافت یا ارسال خبر: {e}")
+        print("خطا در دریافت یا ارسال خبر:", e)
 
+# اجرای اصلی
 if __name__ == "__main__":
     send_news()
