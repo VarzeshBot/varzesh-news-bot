@@ -11,15 +11,16 @@ from telegram import Bot, ParseMode
 TOKEN = "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ"
 CHANNEL_ID ="@akhbar_varzeshi_roz_iran"
 
+# ساخت بات تلگرام
 bot = Bot(token=TOKEN)
 
-# اتصال به دیتابیس
+# تنظیم اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس سایت
+# آدرس صفحه اخبار ورزش ۳
 BASE_URL = "https://www.varzesh3.com/news"
 
 def already_sent(news_id):
@@ -32,13 +33,10 @@ def mark_as_sent(news_id):
 
 def send_news():
     try:
-        print("در حال دریافت صفحه‌ی اخبار...")
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        news_links = soup.select("a[href^='/news/']")
-        print(f"تعداد خبرهای پیدا شده: {len(news_links)}")
-
+        news_links = soup.select("a.news-item__link[href^='/news/']")
         seen = set()
 
         for a in news_links:
@@ -47,34 +45,29 @@ def send_news():
 
             if not href or not title:
                 continue
+
             if href in seen:
                 continue
-            if not href.startswith("/news/"):
-                continue
-
             seen.add(href)
 
-            match = re.search(r"/news/(\d+)", href)
-            if not match:
+            news_id_match = re.search(r"/news/(\d+)", href)
+            if not news_id_match:
                 continue
 
-            news_id = match.group(1)
-
+            news_id = news_id_match.group(1)
             if already_sent(news_id):
-                print(f"خبر تکراری پیدا شد: {news_id}")
                 continue
 
             full_link = f"https://www.varzesh3.com{href}"
             message = f"<b>📣 {escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
 
             bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-            print(f"خبر ارسال شد: {title}")
             mark_as_sent(news_id)
-            break  # فقط یک خبر بفرستیم
+            print(f"خبر جدید ارسال شد: {title}")
+            break
 
     except Exception as e:
-        print("خطا:", e)
+        print(f"خطا در دریافت یا ارسال خبر: {e}")
 
-# اجرای اصلی
 if __name__ == "__main__":
     send_news()
