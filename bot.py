@@ -12,14 +12,13 @@ TOKEN = os.getenv("BOT_TOKEN", "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 bot = Bot(token=TOKEN)
 
-
-# اتصال به دیتابیس برای جلوگیری از ارسال تکراری
+# اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس سایت خبرورزشی
+# آدرس سایت
 BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
 
 def already_sent(news_id):
@@ -34,8 +33,9 @@ def send_news():
     try:
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "lxml")
-
         news_blocks = soup.select("li[class*=mass] a[href*='/news/']")
+
+        print("تعداد خبر پیدا شده:", len(news_blocks))
         seen = set()
 
         for a in news_blocks:
@@ -49,22 +49,20 @@ def send_news():
             match = re.search(r"/news/(\d+)", href)
             if not match:
                 continue
-
             news_id = match.group(1)
+
             if already_sent(news_id):
                 continue
 
             full_link = f"https://www.khabarvarzeshi.com{href}"
 
-            img_tag = a.find("img")
-            img_url = img_tag["src"] if img_tag and "src" in img_tag.attrs else None
+            # گرفتن عکس
+            parent_li = a.find_parent("li")
+            img_tag = parent_li.find("img") if parent_li else None
+            img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else None
 
-            caption = (
-                "📣 <b>اخبار ورزشی</b>\n\n"
-                f"<b>{escape(title)}</b>\n\n"
-                f"<a href='{full_link}'>مشاهده خبر</a>\n\n"
-                "@akhbar_varzeshi_roz_iran"
-            )
+            # ساخت پیام
+            caption = f"📣 <b>اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n\n<a href='{full_link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
 
             if img_url:
                 bot.send_photo(chat_id=CHANNEL_ID, photo=img_url, caption=caption, parse_mode=ParseMode.HTML)
@@ -73,13 +71,12 @@ def send_news():
 
             mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
-            break
-
+            break  # فقط یک خبر ارسال شود
     except Exception as e:
-        print("خطا در ارسال خبر:", e)
+        print("خطا هنگام ارسال خبر:", e)
 
-# اجرای اصلی هر ۵ دقیقه
+# اجرای دوره‌ای
 if __name__ == "__main__":
     while True:
         send_news()
-        time.sleep(300)
+        time.sleep(300)  # هر ۵ دقیقه
