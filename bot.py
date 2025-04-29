@@ -41,7 +41,9 @@ def send_news():
 
         # پیدا کردن لینک‌های خبر
         news_blocks = soup.select("li[class*=mass] a[href*='/news/']")
-        seen = set()
+       print("تعداد خبر پیدا شده:", len(news_blocks))
+
+ seen = set()
 
         for a in news_blocks:
             href = a.get("href")
