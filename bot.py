@@ -12,6 +12,10 @@ TOKEN = os.getenv("BOT_TOKEN", "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 bot = Bot(token=TOKEN)
 
+# حذف فایل دیتابیس اگر وجود داشته باشد (برای پاکسازی خبرهای قبلی)
+if os.path.exists("news.db"):
+    os.remove("news.db")
+
 # اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
