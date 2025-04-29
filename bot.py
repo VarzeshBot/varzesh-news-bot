@@ -13,13 +13,13 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 
 bot = Bot(token=TOKEN)
 
-# اتصال به دیتابیس
+# اتصال به دیتابیس محلی برای جلوگیری از خبر تکراری
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس صفحه‌ی خبرها
+# آدرس سایت خبرورزشی
 BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
 
 def already_sent(news_id):
@@ -35,58 +35,49 @@ def send_news():
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "lxml")
 
-        # پیدا کردن خبرها
-        news_list = soup.select("ul.news li")
-
+        news_links = soup.find_all("a", href=True)
         seen = set()
 
-        for item in news_list:
-            a_tag = item.find("a", href=True)
-            img_tag = item.find("img", src=True)
+        for a in news_links:
+            href = a["href"]
+            title = a.get_text(strip=True)
 
-            if not a_tag or not img_tag:
+            # فیلتر: فقط خبرهایی که لینک شبیه /news/123456/عنوان-خبر دارن
+            if not re.match(r"^/news/\d+/", href):
                 continue
-
-            href = a_tag["href"]
-            title = a_tag.get("title", "").strip()
-            img_url = img_tag["src"]
 
             if not href or not title or href in seen:
                 continue
+
             seen.add(href)
 
-            match = re.search(r"/news/(\d+)", href)
-            if not match:
-                continue
-
-            news_id = match.group(1)
+            news_id = href.split("/")[2]  # شماره خبر از لینک
             if already_sent(news_id):
                 continue
 
             full_link = f"https://www.khabarvarzeshi.com{href}"
-
-            caption = (
+            message = (
                 "📣 <b>اخبار ورزشی</b>\n\n"
                 f"<b>{escape(title)}</b>\n\n"
                 f'<a href="{full_link}">مشاهده خبر</a>\n\n'
                 "@akhbar_varzeshi_roz_iran"
             )
 
-            # ارسال عکس همراه با متن
-            bot.send_photo(
+            bot.send_message(
                 chat_id=CHANNEL_ID,
-                photo=img_url,
-                caption=caption,
-                parse_mode="HTML"
+                text=message,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=False  # عکس کوچک خبر فعال
             )
 
             mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
-            break  # فقط یک خبر در هر بار
-    except Exception as e:
-        print("خطا در ارسال خبر:", e)
+            break  # فقط یک خبر جدید ارسال کن
 
-if __name__ == "__main__":
+    except Exception as e:
+        print("خطا هنگام ارسال خبر:", e)
+
+if _name_ == "_main_":
     while True:
         send_news()
-        time.sleep(300)  # هر 5 دقیقه
+        time.sleep(300)  # هر ۵ دقیقه یکبار چک کند
