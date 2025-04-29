@@ -20,7 +20,7 @@ cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
 # آدرس صفحه اخبار ورزش ۳
-BASE_URL = "https://www.varzesh3.com"
+BASE_URL = "https://https://www.khabarvarzeshi.com/service/allnews"
 
 def already_sent(news_id):
     cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
