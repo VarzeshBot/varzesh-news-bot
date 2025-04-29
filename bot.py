@@ -63,7 +63,7 @@ def send_news():
     except Exception as e:
         print("خطا در ارسال خبر:", e)
 
-if _ _name_ _== "_ _main_ _":
+if __name__== "__main__":
     while True:
         send_news()
         time.sleep(300)  # هر ۵ دقیقه (۳۰۰ ثانیه) یکبار
