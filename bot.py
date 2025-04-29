@@ -44,39 +44,38 @@ def send_news():
         print("تعداد خبر پیدا شده:", len(news_blocks))
 
         seen = set()
-        for a in news_blocks:
-            href = a.get("href")
-            title = a.get_text(strip=True)
+       if news_blocks:
+        a = news_blocks[0]  # فقط اولین خبر
+        href = a.get("href")
+        title = a.get_text(strip=True)
+        if not href or not title:
+            return
 
-            if not href or not title or href in seen:
-                continue
-            seen.add(href)
+        match = re.search(r"/news/(\d+)", href)
+        if not match:
+            return
 
-            match = re.search(r"/news/(\d+)", href)
-            if not match:
-                continue
-            news_id = match.group(1)
-            if already_sent(news_id):
-                continue
+        news_id = match.group(1)
+        if already_sent(news_id):
+            print("خبر تکراری است:", title)
+            return
 
-            full_link = f"https://www.khabarvarzeshi.com{href}"
+        full_link = f"https://www.khabarvarzeshi.com{href}"
+        
+        # گرفتن عکس
+        parent_li = a.find_parent("li") if a else None
+        img_tag = parent_li.find("img") if parent_li else None
+        img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else None
 
-            # گرفتن عکس
-            parent_li = a.find_parent("li")
-            img_tag = parent_li.find("img") if parent_li else None
-            img_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else None
+        caption = f"📣 <b>اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n\n<a href='{full_link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
+        
+        if img_url:
+            bot.send_photo(chat_id=CHANNEL_ID, photo=img_url, caption=caption, parse_mode=ParseMode.HTML)
+        else:
+            bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode=ParseMode.HTML)
 
-            # ساخت پیام
-            caption = f"📣 <b>اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n\n<a href='{full_link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
-
-            # ارسال پیام
-            if img_url:
-                bot.send_photo(chat_id=CHANNEL_ID, photo=img_url, caption=caption, parse_mode=ParseMode.HTML)
-            else:
-                bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode=ParseMode.HTML)
-
-            mark_as_sent(news_id)
-            print(f"خبر ارسال شد: {title}")
+        mark_as_sent(news_id)
+        print("خبر ارسال شد:", title)
             break  # فقط یک خبر ارسال شود
 
     except Exception as e:
