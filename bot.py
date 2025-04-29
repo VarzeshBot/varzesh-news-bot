@@ -12,7 +12,7 @@ TOKEN = os.getenv("BOT_TOKEN", "8107821630:AAGYeDcX9u0gsuGRL0bscEtNullhjeo8cIQ")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 bot = Bot(token=TOKEN)
 
-# حذف فایل دیتابیس اگر وجود داشته باشد (برای پاکسازی خبرهای قبلی)
+# حذف دیتابیس قبلی برای شروع تازه (فقط در اولین اجرا)
 if os.path.exists("news.db"):
     os.remove("news.db")
 
@@ -22,26 +22,28 @@ cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس سایت
+# آدرس سایت خبرورزشی
 BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
 
+# بررسی تکراری بودن خبر
 def already_sent(news_id):
     cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
     return cursor.fetchone() is not None
 
+# ثبت خبر ارسال شده
 def mark_as_sent(news_id):
     cursor.execute("INSERT OR IGNORE INTO sent_news (id) VALUES (?)", (news_id,))
     conn.commit()
 
+# دریافت و ارسال خبر
 def send_news():
     try:
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "lxml")
-        news_blocks = soup.select("li[class*=mass] a[href*='/news/']")
-
+        news_blocks = soup.select("li.news a[href*='/news/']")
         print("تعداد خبر پیدا شده:", len(news_blocks))
-        seen = set()
 
+        seen = set()
         for a in news_blocks:
             href = a.get("href")
             title = a.get_text(strip=True)
@@ -54,9 +56,8 @@ def send_news():
             if not match:
                 continue
             news_id = match.group(1)
-
-           # if already_sent(news_id):
-              #  continue
+            if already_sent(news_id):
+                continue
 
             full_link = f"https://www.khabarvarzeshi.com{href}"
 
@@ -68,6 +69,7 @@ def send_news():
             # ساخت پیام
             caption = f"📣 <b>اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n\n<a href='{full_link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
 
+            # ارسال پیام
             if img_url:
                 bot.send_photo(chat_id=CHANNEL_ID, photo=img_url, caption=caption, parse_mode=ParseMode.HTML)
             else:
@@ -76,6 +78,7 @@ def send_news():
             mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
             break  # فقط یک خبر ارسال شود
+
     except Exception as e:
         print("خطا هنگام ارسال خبر:", e)
 
