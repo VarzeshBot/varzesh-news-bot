@@ -13,13 +13,13 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 
 bot = Bot(token=TOKEN)
 
-# اتصال به دیتابیس محلی برای ذخیره اخبار ارسال شده
+# اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس صفحه اخبار
+# آدرس صفحه اصلی
 BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
 
 def already_sent(news_id):
@@ -35,47 +35,51 @@ def send_news():
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "lxml")
 
-        news_links = soup.find_all("a", href=re.compile(r"^/news/\d+"))
-        seen = set()
+        # فقط اولین خبر جدید پیدا شود
+        first_news = soup.find("a", href=re.compile(r"^/news/\d+"))
+        if not first_news:
+            print("خبری پیدا نشد")
+            return
 
-        for a in news_links:
-            href = a.get("href")
-            title = a.get_text(strip=True)
+        href = first_news.get("href")
+        title = first_news.get_text(strip=True)
 
-            if not href or not title or href in seen:
-                continue
-            seen.add(href)
+        if not href or not title:
+            print("اطلاعات خبر ناقص است")
+            return
 
-            match = re.search(r"/news/(\d+)", href)
-            if not match:
-                continue
+        match = re.search(r"/news/(\d+)", href)
+        if not match:
+            print("فرمت لینک درست نیست")
+            return
 
-            news_id = match.group(1)
-            if already_sent(news_id):
-                continue
+        news_id = match.group(1)
+        if already_sent(news_id):
+            print("این خبر قبلاً ارسال شده")
+            return
 
-            full_link = f"https://www.khabarvarzeshi.com{href}"
-            message = (
-                "📣 <b>اخبار ورزشی</b>\n\n"
-                f"<b>{escape(title)}</b>\n\n"
-                f'<a href="{full_link}">مشاهده خبر</a>\n\n'
-                "@akhbar_varzeshi_roz_iran"
-            )
+        full_link = f"https://www.khabarvarzeshi.com{href}"
+        message = (
+            "📣 <b>اخبار ورزشی</b>\n\n"
+            f"<b>{escape(title)}</b>\n\n"
+            f'<a href="{full_link}">مشاهده خبر</a>\n\n'
+            "@akhbar_varzeshi_roz_iran"
+        )
 
-            bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=message,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=False,  # عکس و خلاصه خبر نمایش داده شود
-            )
+        bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=message,
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=False,
+        )
 
-            mark_as_sent(news_id)
-            print(f"خبر ارسال شد: {title}")
-            break  # فقط یک خبر جدید ارسال کن
+        mark_as_sent(news_id)
+        print(f"خبر ارسال شد: {title}")
+
     except Exception as e:
         print("خطا هنگام ارسال خبر:", e)
 
 if __name__ == "__main__":
     while True:
         send_news()
-        time.sleep(300)  # هر ۵ دقیقه یکبار چک کند
+        time.sleep(300)  # هر ۵ دقیقه چک کن
