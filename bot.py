@@ -55,8 +55,8 @@ def send_news():
                 continue
             news_id = match.group(1)
 
-            if already_sent(news_id):
-                continue
+           # if already_sent(news_id):
+              #  continue
 
             full_link = f"https://www.khabarvarzeshi.com{href}"
 
