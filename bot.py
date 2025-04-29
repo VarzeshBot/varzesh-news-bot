@@ -66,7 +66,7 @@ def send_news():
         print("خطا هنگام ارسال خبر:", e)
 
 # اجرای اصلی
-if _name_ == "_main_":
+if __name__ == "__main__":
     while True:
         send_news()
         time.sleep(300)  # هر ۵ دقیقه یکبار
