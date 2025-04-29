@@ -13,95 +13,55 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 
 bot = Bot(token=TOKEN)
 
-# اتصال به دیتابیس
-conn = sqlite3.connect("news.db", check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
-conn.commit()
+# آدرس سایت اصلی
+BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
 
-# آدرس صفحه اصلی ورزش۳
-BASE_URL = "https://www.varzesh3.com/"
-
-def already_sent(news_id):
-    cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
-    return cursor.fetchone() is not None
-
-def mark_as_sent(news_id):
-    cursor.execute("INSERT OR IGNORE INTO sent_news (id) VALUES (?)", (news_id,))
-    conn.commit()
+# ذخیره لینک‌های ارسال شده برای جلوگیری از تکراری‌ها
+sent_links = set()
 
 def send_news():
     try:
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        seen = set()
+        news_items = soup.select("ul.list > li")
 
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
+        for item in news_items:
+            a_tag = item.find("a", href=True, title=True)
+            img_tag = item.find("img", src=True)
 
-            if not href.startswith("/news/"):
+            if not a_tag or not img_tag:
                 continue
 
-            if href in seen:
-                continue
-            seen.add(href)
+            title = a_tag["title"].strip()
+            link = a_tag["href"]
+            img_url = img_tag["src"]
 
-            match = re.search(r"/news/(\d+)", href)
-            if not match:
-                continue
+            if not link.startswith("http"):
+                full_link = f"https://www.khabarvarzeshi.com{link}"
+            else:
+                full_link = link
 
-            news_id = match.group(1)
-
-            if already_sent(news_id):
-                continue
-
-            title = a.get_text(strip=True)
-            if not title:
+            if full_link in sent_links:
                 continue
 
-            full_link = f"https://www.varzesh3.com{href}"
+            message = f"<b>📣 اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n\n<a href='{full_link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
 
-            # تلاش برای پیدا کردن عکس خبر
-            parent = a.find_parent("div", class_="newsbox-2-container")
-            img_tag = parent.find("img") if parent else None
-            img_url = None
-            if img_tag and img_tag.has_attr("src"):
-                img_url = img_tag["src"]
-                if img_url.startswith("//"):
-                    img_url = "https:" + img_url
-
-            # ساخت پیام
-            message = (
-                "📣 <b>اخبار ورزشی</b>\n\n"
-                f"<b>{escape(title)}</b>\n\n"
-                f'<a href="{full_link}">مشاهده خبر</a>\n\n'
-                "@akhbar_varzeshi_roz_iran"
+            # ارسال پیام به کانال همراه با عکس
+            bot.send_photo(
+                chat_id=CHANNEL_ID,
+                photo=img_url,
+                caption=message,
+                parse_mode=ParseMode.HTML
             )
 
-            if img_url:
-                # اگر عکس داشت، عکس + متن
-                bot.send_photo(
-                    chat_id=CHANNEL_ID,
-                    photo=img_url,
-                    caption=message,
-                    parse_mode=ParseMode.HTML
-                )
-            else:
-                # اگر عکس نداشت، فقط متن
-                bot.send_message(
-                    chat_id=CHANNEL_ID,
-                    text=message,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True
-                )
+            sent_links.add(full_link)
 
-            mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
-            break
+            break  # فقط یک خبر جدید در هر اجرا
 
     except Exception as e:
-        print("خطا هنگام ارسال خبر:", e)
+        print("خطا در ارسال خبر:", e)
 
 if __name__ == "__main__":
     send_news()
