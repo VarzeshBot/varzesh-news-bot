@@ -13,13 +13,13 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 
 bot = Bot(token=TOKEN)
 
-# اتصال به دیتابیس محلی برای جلوگیری از خبر تکراری
+# اتصال به دیتابیس محلی برای ذخیره اخبار ارسال شده
 conn = sqlite3.connect("news.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
 conn.commit()
 
-# آدرس سایت خبرورزشی
+# آدرس صفحه اخبار
 BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
 
 def already_sent(news_id):
@@ -35,23 +35,22 @@ def send_news():
         response = requests.get(BASE_URL, timeout=10)
         soup = BeautifulSoup(response.text, "lxml")
 
-        news_links = soup.find_all("a", href=True)
+        news_links = soup.find_all("a", href=re.compile(r"^/news/\d+"))
         seen = set()
 
         for a in news_links:
-            href = a["href"]
+            href = a.get("href")
             title = a.get_text(strip=True)
-
-            # فیلتر: فقط خبرهایی که لینک شبیه /news/123456/عنوان-خبر دارن
-            if not re.match(r"^/news/\d+/", href):
-                continue
 
             if not href or not title or href in seen:
                 continue
-
             seen.add(href)
 
-            news_id = href.split("/")[2]  # شماره خبر از لینک
+            match = re.search(r"/news/(\d+)", href)
+            if not match:
+                continue
+
+            news_id = match.group(1)
             if already_sent(news_id):
                 continue
 
@@ -67,13 +66,12 @@ def send_news():
                 chat_id=CHANNEL_ID,
                 text=message,
                 parse_mode=ParseMode.HTML,
-                disable_web_page_preview=False  # عکس کوچک خبر فعال
+                disable_web_page_preview=False,  # عکس و خلاصه خبر نمایش داده شود
             )
 
             mark_as_sent(news_id)
             print(f"خبر ارسال شد: {title}")
             break  # فقط یک خبر جدید ارسال کن
-
     except Exception as e:
         print("خطا هنگام ارسال خبر:", e)
 
