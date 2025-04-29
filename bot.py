@@ -13,55 +13,59 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "@akhbar_varzeshi_roz_iran")
 
 bot = Bot(token=TOKEN)
 
-# آدرس سایت اصلی
-BASE_URL = "https://www.khabarvarzeshi.com/service/allnews"
+# تنظیم اتصال به دیتابیس
+conn = sqlite3.connect("news.db", check_same_thread=False)
+cursor = conn.cursor()
+cursor.execute("CREATE TABLE IF NOT EXISTS sent_news (id TEXT PRIMARY KEY)")
+conn.commit()
 
-# ذخیره لینک‌های ارسال شده برای جلوگیری از تکراری‌ها
-sent_links = set()
+# آدرس صفحه اخبار ورزش ۳
+BASE_URL = "https://www.varzesh3.com"
+
+def already_sent(news_id):
+    cursor.execute("SELECT 1 FROM sent_news WHERE id=?", (news_id,))
+    return cursor.fetchone() is not None
+
+def mark_as_sent(news_id):
+    cursor.execute("INSERT OR IGNORE INTO sent_news (id) VALUES (?)", (news_id,))
+    conn.commit()
 
 def send_news():
     try:
-        response = requests.get(BASE_URL, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
+        response = requests.get(f"{BASE_URL}/news", timeout=10)
+        soup = BeautifulSoup(response.text, "lxml")
 
-        news_items = soup.select("ul.list > li")
+        news_links = soup.find_all("a", href=re.compile(r"^/news/\d+"))
+        seen = set()
 
-        for item in news_items:
-            a_tag = item.find("a", href=True, title=True)
-            img_tag = item.find("img", src=True)
+        for a in news_links:
+            href = a.get("href")
+            title = a.get_text(strip=True)
 
-            if not a_tag or not img_tag:
+            if not href or not title or href in seen:
+                continue
+            seen.add(href)
+
+            match = re.search(r"/news/(\d+)", href)
+            if not match:
                 continue
 
-            title = a_tag["title"].strip()
-            link = a_tag["href"]
-            img_url = img_tag["src"]
-
-            if not link.startswith("http"):
-                full_link = f"https://www.khabarvarzeshi.com{link}"
-            else:
-                full_link = link
-
-            if full_link in sent_links:
+            news_id = match.group(1)
+            if already_sent(news_id):
                 continue
 
-            message = f"<b>📣 اخبار ورزشی</b>\n\n<b>{escape(title)}</b>\n\n<a href='{full_link}'>مشاهده خبر</a>\n\n@akhbar_varzeshi_roz_iran"
+            full_link = f"{BASE_URL}{href}"
+            message = f"<b>📣 {escape(title)}</b>\n<a href='{full_link}'>مطالعه خبر</a>"
 
-            # ارسال پیام به کانال همراه با عکس
-            bot.send_photo(
-                chat_id=CHANNEL_ID,
-                photo=img_url,
-                caption=message,
-                parse_mode=ParseMode.HTML
-            )
-
-            sent_links.add(full_link)
-
-            print(f"خبر ارسال شد: {title}")
-            break  # فقط یک خبر جدید در هر اجرا
+            # ارسال پیام
+            bot.send_message(chat_id=CHANNEL_ID, text=message, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+            mark_as_sent(news_id)
+            break  # فقط یک خبر در هر بار اجرا
 
     except Exception as e:
-        print("خطا در ارسال خبر:", e)
+        print("خطا در دریافت یا ارسال خبر:", e)
+
+# اجرای اصلی
 
         send_news()
         time.sleep(300)  # هر ۵ دقیقه (۳۰۰ ثانیه) یکبار
