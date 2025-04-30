@@ -14,7 +14,7 @@ bot = Bot(token=TOKEN)
 
 # حذف دیتابیس قبلی برای شروع تازه (فقط در اولین اجرا)
 if os.path.exists("news.db"):
-   # os.remove("news.db")
+    os.remove("news.db")
 
 # اتصال به دیتابیس
 conn = sqlite3.connect("news.db", check_same_thread=False)
